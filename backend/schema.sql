@@ -151,6 +151,35 @@ BEGIN
     WHERE id = NEW.player_id;
 END//
 
+-- Stored Procedure for Team Statistics
+CREATE PROCEDURE GetTeamStatistics(IN team_id INT)
+BEGIN
+    SELECT 
+        t.id,
+        t.name AS team_name,
+        t.sport,
+        t.coach,
+        t.founded,
+        t.total_players,
+        t.wins,
+        COUNT(DISTINCT p.id) AS actual_player_count,
+        ROUND(AVG(p.age), 2) AS avg_player_age,
+        SUM(p.runs_scored) AS total_team_runs,
+        SUM(p.matches_played) AS total_team_matches,
+        ROUND(SUM(p.runs_scored) / NULLIF(SUM(p.matches_played), 0), 2) AS team_avg_performance,
+        (SELECT COUNT(*) FROM matches WHERE (team1_id = t.id OR team2_id = t.id) AND status = 'completed') AS matches_played,
+        (SELECT COUNT(*) FROM matches WHERE winner_id = t.id) AS matches_won,
+        ROUND((SELECT COUNT(*) FROM matches WHERE winner_id = t.id) * 100.0 / 
+              NULLIF((SELECT COUNT(*) FROM matches WHERE (team1_id = t.id OR team2_id = t.id) AND status = 'completed'), 0), 2) AS win_percentage,
+        (SELECT COUNT(DISTINCT e.id) FROM events e 
+         JOIN matches m ON e.id = m.event_id 
+         WHERE (m.team1_id = t.id OR m.team2_id = t.id)) AS events_participated
+    FROM teams t
+    LEFT JOIN players p ON t.id = p.team_id
+    WHERE t.id = team_id
+    GROUP BY t.id, t.name, t.sport, t.coach, t.founded, t.total_players, t.wins;
+END//
+
 DELIMITER ;
 
 CREATE INDEX idx_players_team ON players(team_id);

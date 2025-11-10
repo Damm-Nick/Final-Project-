@@ -10,11 +10,6 @@ export default function App() {
   const [matches, setMatches] = useState([])
   const [stats, setStats] = useState({ players: 0, teams: 0, events: 0, matches: 0 })
   const [q1, setQ1] = useState([])
-  const [q2, setQ2] = useState([])
-  const [q3, setQ3] = useState([])
-  const [q4, setQ4] = useState([])
-  const [q6, setQ6] = useState([])
-  const [q10, setQ10] = useState([])
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -24,6 +19,10 @@ export default function App() {
   const [playerForm, setPlayerForm] = useState({})
   const [teamForm, setTeamForm] = useState({})
   const [eventForm, setEventForm] = useState({})
+  const [selectedPlayer, setSelectedPlayer] = useState(null)
+  const [playerDetails, setPlayerDetails] = useState(null)
+  const [selectedTeam, setSelectedTeam] = useState(null)
+  const [teamStatistics, setTeamStatistics] = useState(null)
 
   useEffect(() => { fetchAll() }, [])
 
@@ -38,11 +37,6 @@ export default function App() {
         fetch(`${API_URL}/matches`),
         fetch(`${API_URL}/stats`),
         fetch(`${API_URL}/queries/q1`),
-        fetch(`${API_URL}/queries/q2`),
-        fetch(`${API_URL}/queries/q3`),
-        fetch(`${API_URL}/queries/q4`),
-        fetch(`${API_URL}/queries/q6`),
-        fetch(`${API_URL}/queries/q10`),
         fetch(`${API_URL}/logs`)
       ])
       const json = await Promise.all(res.map(r => r.ok ? r.json() : []))
@@ -52,12 +46,7 @@ export default function App() {
       setMatches(json[3] || [])
       setStats(json[4] || { players: 0, teams: 0, events: 0, matches: 0 })
       setQ1(json[5] || [])
-      setQ2(json[6] || [])
-      setQ3(json[7] || [])
-      setQ4(json[8] || [])
-      setQ6(json[9] || [])
-      setQ10(json[10] || [])
-      setLogs(json[11] || [])
+      setLogs(json[6] || [])
     } catch {
       setError('Backend connection failed')
     } finally {
@@ -97,12 +86,34 @@ export default function App() {
     fetchAll()
   }
 
+  const viewPlayerDetails = async (playerId) => {
+    try {
+      const res = await fetch(`${API_URL}/players/${playerId}`)
+      const data = await res.json()
+      setPlayerDetails(data)
+      setSelectedPlayer(playerId)
+    } catch (error) {
+      alert('Failed to load player details')
+    }
+  }
+
+  const viewTeamStatistics = async (teamId) => {
+    try {
+      const res = await fetch(`${API_URL}/teams/${teamId}/statistics`)
+      const data = await res.json()
+      setTeamStatistics(data)
+      setSelectedTeam(teamId)
+    } catch (error) {
+      alert('Failed to load team statistics')
+    }
+  }
+
   if (loading) return (
     <div className="app">
       <header className="header">
         <div className="header-content">
           <div className="header-left">
-            <h1>VIT’s Sport Event Management</h1>
+            <h1>VIT's Sport Event Management</h1>
             <p>For Vishwakarandak 25</p>
           </div>
         </div>
@@ -116,7 +127,7 @@ export default function App() {
       <header className="header">
         <div className="header-content">
           <div className="header-left">
-            <h1>VIT’s Sport Event Management</h1>
+            <h1>VIT's Sport Event Management</h1>
             <p>For Vishwakarandak 25</p>
           </div>
           <div className="header-stats">
@@ -206,7 +217,45 @@ export default function App() {
                     <div className="meta">{p.matches_played} matches</div>
                     <div className="meta">{p.runs_scored} runs</div>
                     <div className={`status-pill ${p.status}`}>{p.status}</div>
+                    <button className="btn-info" onClick={() => viewPlayerDetails(p.id)}>Details</button>
                     <button className="btn-outline" onClick={() => delPlayer(p.id)}>Delete</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'teams' && (
+          <div className="content">
+            <div className="content-header">
+              <h2>Teams</h2>
+              <button className="btn-primary" onClick={() => setShowAddTeam(!showAddTeam)}>{showAddTeam ? 'Cancel' : '+ Add Team'}</button>
+            </div>
+
+            {showAddTeam && (
+              <div className="form-card">
+                <div className="form-grid">
+                  <input placeholder="Team Name" value={teamForm.name || ''} onChange={e => setTeamForm({ ...teamForm, name: e.target.value })} />
+                  <input placeholder="Sport" value={teamForm.sport || ''} onChange={e => setTeamForm({ ...teamForm, sport: e.target.value })} />
+                  <input placeholder="Coach" value={teamForm.coach || ''} onChange={e => setTeamForm({ ...teamForm, coach: e.target.value })} />
+                  <input placeholder="Founded Year" type="number" value={teamForm.founded || ''} onChange={e => setTeamForm({ ...teamForm, founded: e.target.value })} />
+                  <button className="btn-success" onClick={addTeam}>Save</button>
+                </div>
+              </div>
+            )}
+
+            <div className="list">
+              {teams.map(t => (
+                <div key={t.id} className="list-row">
+                  <div className="left">
+                    <div className="title">{t.name}</div>
+                    <div className="subtitle">{t.sport} · Coach: {t.coach || '—'}</div>
+                  </div>
+                  <div className="right small-rows">
+                    <div className="meta">{t.total_players} players</div>
+                    <div className="meta">{t.wins} wins</div>
+                    <button className="btn-info" onClick={() => viewTeamStatistics(t.id)}>Statistics</button>
                   </div>
                 </div>
               ))}
@@ -225,6 +274,7 @@ export default function App() {
               <div className="form-card">
                 <div className="form-grid">
                   <input placeholder="Event name" value={eventForm.name || ''} onChange={e => setEventForm({ ...eventForm, name: e.target.value })} />
+                  <input placeholder="Sport" value={eventForm.sport || ''} onChange={e => setEventForm({ ...eventForm, sport: e.target.value })} />
                   <input type="date" value={eventForm.start_date || ''} onChange={e => setEventForm({ ...eventForm, start_date: e.target.value })} />
                   <input type="date" value={eventForm.end_date || ''} onChange={e => setEventForm({ ...eventForm, end_date: e.target.value })} />
                   <input placeholder="Location" value={eventForm.location || ''} onChange={e => setEventForm({ ...eventForm, location: e.target.value })} />
@@ -293,7 +343,151 @@ export default function App() {
         )}
       </div>
 
-      <footer className="footer"><p>VIT’s Sport Event Management • Vishwakarandak 25</p></footer>
+      {/* Player Details Modal */}
+      {selectedPlayer && playerDetails && (
+        <div className="modal-overlay" onClick={() => setSelectedPlayer(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Player Details</h3>
+              <button className="modal-close" onClick={() => setSelectedPlayer(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="stat-grid">
+                <div className="stat-box">
+                  <div className="label">Name</div>
+                  <div className="value">{playerDetails.player.name}</div>
+                </div>
+                <div className="stat-box">
+                  <div className="label">Age</div>
+                  <div className="value">{playerDetails.player.age}</div>
+                </div>
+                <div className="stat-box">
+                  <div className="label">Sport</div>
+                  <div className="value">{playerDetails.player.sport}</div>
+                </div>
+                <div className="stat-box">
+                  <div className="label">Status</div>
+                  <div className={`status-pill ${playerDetails.player.status}`}>{playerDetails.player.status}</div>
+                </div>
+                <div className="stat-box">
+                  <div className="label">Team</div>
+                  <div className="value">{playerDetails.player.team_name || '—'}</div>
+                </div>
+                <div className="stat-box">
+                  <div className="label">Coach</div>
+                  <div className="value">{playerDetails.player.coach || '—'}</div>
+                </div>
+                <div className="stat-box">
+                  <div className="label">Matches Played</div>
+                  <div className="value">{playerDetails.player.matches_played}</div>
+                </div>
+                <div className="stat-box">
+                  <div className="label">Total Runs</div>
+                  <div className="value">{playerDetails.player.runs_scored}</div>
+                </div>
+              </div>
+              
+              <h4 style={{marginTop: '24px', marginBottom: '12px', fontWeight: 700}}>Match History</h4>
+              <div className="list">
+                {playerDetails.matchStats.length === 0 ? (
+                  <div className="no-data">No match statistics available</div>
+                ) : (
+                  playerDetails.matchStats.map(ms => (
+                    <div key={ms.id} className="list-row">
+                      <div className="left">
+                        <div className="title">{ms.event_name}</div>
+                        <div className="subtitle">{ms.team1_name} vs {ms.team2_name} · {new Date(ms.match_date).toLocaleDateString()}</div>
+                      </div>
+                      <div className="right small-rows">
+                        <div className="meta">{ms.runs_scored} runs</div>
+                        <div className="meta">{ms.wickets_taken} wickets</div>
+                        <div className="muted">{ms.minutes_played} min</div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-outline" onClick={() => setSelectedPlayer(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Team Statistics Modal */}
+      {selectedTeam && teamStatistics && (
+        <div className="modal-overlay" onClick={() => setSelectedTeam(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Team Statistics</h3>
+              <button className="modal-close" onClick={() => setSelectedTeam(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <h4 style={{marginBottom: '16px', fontWeight: 700, fontSize: '18px'}}>{teamStatistics.team_name}</h4>
+              <div className="stat-grid">
+                <div className="stat-box">
+                  <div className="label">Sport</div>
+                  <div className="value">{teamStatistics.sport}</div>
+                </div>
+                <div className="stat-box">
+                  <div className="label">Coach</div>
+                  <div className="value">{teamStatistics.coach || '—'}</div>
+                </div>
+                <div className="stat-box">
+                  <div className="label">Founded</div>
+                  <div className="value">{teamStatistics.founded || '—'}</div>
+                </div>
+                <div className="stat-box">
+                  <div className="label">Total Players</div>
+                  <div className="value">{teamStatistics.total_players}</div>
+                </div>
+                <div className="stat-box">
+                  <div className="label">Total Wins</div>
+                  <div className="value">{teamStatistics.wins}</div>
+                </div>
+                <div className="stat-box">
+                  <div className="label">Matches Played</div>
+                  <div className="value">{teamStatistics.matches_played || 0}</div>
+                </div>
+                <div className="stat-box">
+                  <div className="label">Matches Won</div>
+                  <div className="value">{teamStatistics.matches_won || 0}</div>
+                </div>
+                <div className="stat-box">
+                  <div className="label">Win %</div>
+                  <div className="value">{teamStatistics.win_percentage || 0}%</div>
+                </div>
+                <div className="stat-box">
+                  <div className="label">Avg Player Age</div>
+                  <div className="value">{teamStatistics.avg_player_age || 0}</div>
+                </div>
+                <div className="stat-box">
+                  <div className="label">Total Runs</div>
+                  <div className="value">{teamStatistics.total_team_runs || 0}</div>
+                </div>
+                <div className="stat-box">
+                  <div className="label">Total Matches</div>
+                  <div className="value">{teamStatistics.total_team_matches || 0}</div>
+                </div>
+                <div className="stat-box">
+                  <div className="label">Avg Performance</div>
+                  <div className="value">{teamStatistics.team_avg_performance || 0}</div>
+                </div>
+                <div className="stat-box">
+                  <div className="label">Events Participated</div>
+                  <div className="value">{teamStatistics.events_participated || 0}</div>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-outline" onClick={() => setSelectedTeam(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <footer className="footer"><p>VIT's Sport Event Management • Vishwakarandak 25</p></footer>
     </div>
   )
 }
